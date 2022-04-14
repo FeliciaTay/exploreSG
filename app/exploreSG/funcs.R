@@ -1,6 +1,4 @@
 source("lib.R")
-source("datascript/weather.R")
-source("datascript/restaurants.R")
 
 bRegisterGGmap <- function(name) {
   strkey = switch (name,

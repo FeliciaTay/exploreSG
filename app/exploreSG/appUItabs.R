@@ -1,4 +1,7 @@
 source("lib.R")
+source("funcs.R")
+source("datascript/restaurants.R")
+restaurantLinkTable = getRestaurantLinks()
     
 tabNearby <- tabPanel(
   "What's nearby?", 
@@ -27,15 +30,16 @@ tabAttractions <- tabPanel(
     )
   )
 
-tabLiveData <- tabPanel(
-  "Live data", 
+tabRestaurants <- tabPanel(
+  "Check Restaurants", 
   fluid = TRUE,
   sidebarLayout(
     sidebarPanel(
+      selectInput("restaurant", "Restaurants:", restaurantLinkTable$name),
       actionButton("refresh", label = "Refresh")
       ),
     mainPanel(
-      textOutput("text_output")
+      htmlOutput("tabPanelHtml")
       )
     )
   )

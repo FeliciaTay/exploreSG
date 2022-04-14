@@ -12,7 +12,7 @@ appUI <- shinyUI({
       ),
       tabNearby,
       tabAttractions,
-      tabLiveData,
+      tabRestaurants,
       tabInfo
     )
   )

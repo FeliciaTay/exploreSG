@@ -3,8 +3,6 @@ library(xml2)
 library(dplyr)
 library(tidyr)
 
-url_restaurant="https://www.chope.co/singapore-restaurants/list_of_restaurants?source=chope.com.sg&lang=en_US"
-
 safeReadUrl = function(url) {
   myurl = url(url,"rb") # url format
   page = read_html(myurl)
@@ -24,8 +22,8 @@ getAttrDfFromCss = function(page, selector, attribute){
   return(df)
 }
 
-getRestaurantLinks = function(url){
-  page = safeReadUrl(url_restaurant)
+getRestaurantLinks = function(url = "https://www.chope.co/singapore-restaurants/list_of_restaurants?source=chope.com.sg&lang=en_US"){
+  page = safeReadUrl(url)
   names = getTextDfFromCss(page, ".az-result>ul>li>a")
   hrefs = getAttrDfFromCss(page, ".az-result>ul>li>a", "href")
   merged = cbind(names, hrefs)
