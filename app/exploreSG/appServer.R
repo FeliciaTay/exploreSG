@@ -1,16 +1,15 @@
 source("lib.R")
 source("funcs.R")
+source("datascript/weather.R")
+source("appUItabRest.R")
 
 appServer <- function(input, output) {
   temp_icon <- makeAwesomeIcon(text=fa("circle"), iconColor="white", markerColor="blue")
   
-  output$text_output <- renderText({ 
-    "You have selected this"
-  })
+  output$tabPanelHtml <- renderUI({HTML(getUITabHtml(input))})
+  output$refresh <- renderUI({HTML(refreshUITabHtml(input))})
   
-  output$title <- renderUI({ 
-    HTML("Welcome to ExploreSG!")
-  })
+  output$title <- renderUI({HTML("Welcome to ExploreSG!")})
   
   output$desc <- renderUI({ 
     HTML(paste("<br>", "What's nearby? tab: You can input a location using the text input box and you will be able to toggle between finding hotels, MRT stations, taxi stands or hawker centres nearby. You can find the 2hr weather forecast in that area to help you better plan your iternary:)",
