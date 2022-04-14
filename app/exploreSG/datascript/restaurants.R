@@ -62,4 +62,11 @@ getRestaurantsData <- function(){
   return(dats)
 }
 
-restaurantsLinkTable = getRestaurantLinks(url_restaurant)
+#usage 1:
+#restaurantsLinkTable = getRestaurantLinks(url_restaurant)
+
+#usage 2:
+#restaurantRow = getRowFromLink(href = "...")
+
+#usage 3:
+#restaurants = getRestaurantsData()

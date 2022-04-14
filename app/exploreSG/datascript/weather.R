@@ -26,4 +26,5 @@ getWeatherForecast <- function(){
   return(merged)
 }
 
-weather = getWeatherForecast()
+#usage:
+#weather = getWeatherForecast()
