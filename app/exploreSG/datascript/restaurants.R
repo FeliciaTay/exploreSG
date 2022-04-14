@@ -23,7 +23,7 @@ getAttrDfFromCss = function(page, selector, attribute){
 }
 
 getRestaurantLinks = function(url = "https://www.chope.co/singapore-restaurants/list_of_restaurants?source=chope.com.sg&lang=en_US"){
-  page = safeReadUrl(url_restaurant)
+  page = safeReadUrl(url)
   names = getTextDfFromCss(page, ".az-result>ul>li>a")
   hrefs = getAttrDfFromCss(page, ".az-result>ul>li>a", "href")
   merged = cbind(names, hrefs)
