@@ -20,8 +20,8 @@ source("datascript/restaurants.R")
 # creates a leaflet map of SG
 getSGLeafletMap <- function(context){
   map = leaflet() %>% addTiles() %>% 
-    setView(lng = 103.776718, lat = 1.296321, zoom = 12) %>% 
-    addMouseCoordinates() %>% addHomeButton(ext = context$extent)
+    setView(lng = context$plotlng, lat = context$plotlat, zoom = context$plotzoom) %>% 
+    addMouseCoordinates() %>% addHomeButton(ext = context$extent, group = "Home")
   return(map)
 }
 
@@ -30,42 +30,81 @@ geogDist <- function(lng, lat, lng2, lat2){
   return(distm(c(lng, lat), c(lng2, lat2), fun = distGeo))
 }
 
+# convert hsv color space to rgb color space
+hsv2rgb <- function(hue, sat, val){
+  c = sat * val
+  hp = hue / 60.0
+  ccoeff = 1.0 - abs(hp %% 2 - 1.0)
+  x = c * ccoeff
+  rgb1 = c(0,0,0)
+  if(hp < 1)      rgb1 = c(c,x,0)
+  else if(hp < 2) rgb1 = c(x,c,0)
+  else if(hp < 3) rgb1 = c(0,c,x)
+  else if(hp < 4) rgb1 = c(0,x,c)
+  else if(hp < 5) rgb1 = c(x,0,c)
+  else if(hp < 6) rgb1 = c(c,0,x)
+  else            rgb1 = c(0,0,0)
+  m = val - c
+  r = as.integer((rgb1[1] + m) * 255)
+  g = as.integer((rgb1[2] + m) * 255)
+  b = as.integer((rgb1[3] + m) * 255)
+  return(c(r, g, b))
+}
+
+# convert rgb vector[r,g,b] to hex #XXXXXX
+rgb2hex <- function(rgb){
+  r = as.hexmode(rgb[1])
+  g = as.hexmode(rgb[2])
+  b = as.hexmode(rgb[3])
+  return(paste0("#", r, g, b))
+}
+
+# generate color pallette of required length
+generatePallette <- function(len){
+  seed = runif(1,0,359)
+  delta = 360.0 / len
+  colors = character(length = len)
+  for(i in 1:len){
+    hue = (i - 1.0) * delta
+    sat = 0.5
+    bri = 0.6
+    colors[i] = rgb2hex(hsv2rgb(hue, sat, bri))
+  }
+  return(colors)
+}
+
 # creates an environment object as the data context to be used by this module
-initDataContext <- function(){
+initDataContext <- function(files, labels, fields){
   # new environment
-  context <- new.env(parent = emptyenv())
+  len = length(files)
+  context = new.env(parent = emptyenv())
   # read tables
-  context$data.haw <- read.csv("data/hawkers.csv")
-  context$data.hot <- read.csv("data/hotels.csv")
-  context$data.mrt <- read.csv("data/mrts.csv")
-  context$data.tax <- read.csv("data/taxis.csv")
-  context$data.tou <- read.csv("data/tourism.csv")
-  context$data.res <- read.csv("data/restaurants.csv")
+  context$data = list()
+  context$name = labels
+  for(i in 1:len) context$data[[i]] = read.csv(files[i])
   # get webdata
-  context$data.wea <- getWeatherForecast()
+  context$data.wea = getWeatherForecast()
   # compute LocSet
-  tmploc = rbind.data.frame(
-    subset(context$data.haw, select = c(lng, lat)),
-    subset(context$data.hot, select = c(lng, lat)),
-    subset(context$data.mrt, select = c(lng, lat)),
-    subset(context$data.tax, select = c(lng, lat)),
-    subset(context$data.tou, select = c(lng, lat)),
-    subset(context$data.res, select = c(lng, lat)),
-    subset(context$data.wea, select = c(lng, lat))
-  )
+  tmploc = data.frame(matrix(ncol = 2, nrow = len))
+  geonames = c("lng", "lat")
+  names(tmploc) = geonames
+  for(i in 1:len){
+    ss = subset(context$data[[i]], select = geonames)
+    tmploc[i, ] = ss[i, ]
+  }
   tmploc = distinct(tmploc)
-  coordinates(tmploc) = c("lng", "lat")
+  coordinates(tmploc) = geonames
   context$extent = extent(tmploc)
   # convert to spacial data
-  coordinates(context$data.haw) = c("lng", "lat")
-  coordinates(context$data.hot) = c("lng", "lat")
-  coordinates(context$data.mrt) = c("lng", "lat")
-  coordinates(context$data.tax) = c("lng", "lat")
-  coordinates(context$data.tou) = c("lng", "lat")
-  coordinates(context$data.res) = c("lng", "lat")
-  coordinates(context$data.wea) = c("lng", "lat")
+  for(i in 1:len) coordinates(context$data[[i]]) = geonames
+  # generate color pallette
+  context$colors = generatePallette(len)
   # plot map
-  context$map <- getSGLeafletMap(context)
+  context$plotlat = 1.296321
+  context$plotlng = 103.776718
+  context$plotzoom = 12
+  context$popupfields = fields
+  context$map = getSGLeafletMap(context)
   return(context)
 }
 

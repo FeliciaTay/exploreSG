@@ -1,6 +1,12 @@
 library(fontawesome)
 source("bzmap_funcs.R")
 # region subs (no return value) ###############################################
+# check if input data is valid, throws errors if not
+dataValidation <- function(names, labels, fields){
+  if(length(names) != length(labels)) stop("Error: Not all FileName is associated with a Label")
+  if(length(names) != length(fields)) stop("Error: Not all FileName is associated with a Field")
+  if(!(mode(names) %in% c("character")) || !(mode(labels) %in% c("character")) || !(mode(fields) %in% c("character"))) stop("Error: data not characters")
+}
 
 # edits a leaflet map in plade
 editMap <- function(context, data, appIcon, withDesc = FALSE) {
@@ -34,6 +40,12 @@ observable_drpSelect <- function(input, output, session, context){
   match = filter(lst, name == UQ(x))
   context$curr_loc <- match
   if(match$name == "No Result") match[1:nrow(match),2:ncol(match)] = NA
+  else{
+    context$plotlat = match$lat
+    context$plotlng = match$lng
+    if(!is.null(input$map_zoom)) context$plotzoom = input$map_zoom
+    leafletProxy("map") %>% setView(context$plotlng, context$plotlat, context$plotzoom)
+  }
   output$tableSelected <- renderTable(t(match), rownames = TRUE, colnames = FALSE)
 }
 
@@ -55,32 +67,22 @@ observable_chkChange <- function(input, output, session, context){
   clat = context$curr_loc$lat
   context$map %>% setView(lng = clng, lat = clat, zoom = 12)
   ico = makeAwesomeIcon(text=fa("circle"), iconColor="white", markerColor="blue")
-  if ("Hawker Centres" %in% checkedVec) {
-    context$map = addCircleMarkers(context$map, data = context$data.res)
-  }
-  if ("Hotels" %in% checkedVec) {
-    context$map = addCircleMarkers(context$map, data = context$data.res)
-  }
-  if ("MRT / LRTs" %in% checkedVec) {
-    context$map = addCircleMarkers(context$map, data = context$data.res)
-  }
-  if ("Taxi Stands" %in% checkedVec) {
-    context$map = addCircleMarkers(context$map, data = context$data.res)
-  }
-  if ("Restaurants" %in% checkedVec) {
-    context$map = addCircleMarkers(context$map, data = context$data.res)
-  }
-  if ("Tourism Info" %in% checkedVec) {
-    context$map = addCircleMarkers(context$map, data = context$data.res)
+  for (i in 1:length(context$name)) {
+    if (context$name[i] %in% checkedVec){
+      popups = as.data.frame(context$data[[i]][ , context$popupfields[i]])[[1]]
+      context$map = addCircleMarkers(context$map, data = context$data[[i]], 
+        color = context$colors[i], label = popups)
+    }
   }
   if ("Weather" %in% checkedVec) {
-    context$map = addCircleMarkers(context$map, data = context$data.res)
+    context$map = addCircleMarkers(context$map, data = context$data.wea)
   }
   output$map <- renderLeaflet({context$map})
 }
 
 # region ui ###################################################################
-bzmap_UI <- function(id){
+bzmap_UI <- function(id, vecDataFileNames, vecDataLabels, vecPopupFields){
+  dataValidation(vecDataFileNames, vecDataLabels, vecPopupFields)
   ns <- NS(id) # generate namespace function
   tagList( # UI elements
     titlePanel("Welcome to SG!"),
@@ -93,8 +95,7 @@ bzmap_UI <- function(id){
           tableOutput(ns("tableSelected")),
         ),
         wellPanel(
-          checkboxGroupInput(ns("chkData"), "Which data sources to show?", 
-            c("Hawker Centres", "Hotels", "MRT / LRTs", "Restaurants", "Taxi Stands", "Tourism Info", "Weather"))
+          checkboxGroupInput(ns("chkData"), "Which data sources to show?", vecDataLabels)
         )
       ),
       mainPanel(
@@ -106,8 +107,9 @@ bzmap_UI <- function(id){
 }
 
 # region server ###############################################################
-bzmap_server <- function(id){
-  context <- initDataContext()
+bzmap_server <- function(id, vecDataFileNames, vecDataLabels, vecPopupFields){
+  dataValidation(vecDataFileNames, vecDataLabels, vecPopupFields)
+  context <- initDataContext(vecDataFileNames, vecDataLabels, vecPopupFields)
   moduleServer(
     id,
     function(input, output, session){ # logic
@@ -121,11 +123,15 @@ bzmap_server <- function(id){
   )
 }
 
+# use case ####################################################################
+files = c("data/hawkers.csv", "data/hotels.csv", "data/mrts.csv", "data/restaurants.csv", "data/taxis.csv", "data/tourism.csv")
+labels = c("Hawker Centres", "Hotels", "MRT / LRTs", "Restaurants", "Taxi Stands", "Tourism Info")
+fields = c("name_of_centre", "Name", "station_name", "name", "TYPE_CD_DE", "Name")
 shinyApp(
   ui = fluidPage(
-    bzmap_UI("bzmap")
+    bzmap_UI("bzmap", files, labels, fields)
   ),
   server = function(input, output, session) {
-    bzmap_server("bzmap")
+    bzmap_server("bzmap", files, labels, fields)
   }
 )
