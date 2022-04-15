@@ -1,15 +1,19 @@
+library(fontawesome)
 source("bzmap_funcs.R")
 # region subs (no return value) ###############################################
+
 # edits a leaflet map in plade
 editMap <- function(context, data, appIcon, withDesc = FALSE) {
   for (i in 1:nrow(data)) {
     curr = data[i,]
-    long = as.numeric(curr[1])
-    lati = as.numeric(curr[2])
-    if(!withDesc) context$map = addAwesomeMarkers(context$map, lat=lati,lng=long, icon=appIcon)
-    else{
-      desc = as.character(curr[3])
-      context$map = addAwesomeMarkers(context$map, lat=lati,lng=long, popup=desc, icon=appIcon)
+    if(is.numeric(curr[4])){
+      long = as.numeric(curr[1])
+      lati = as.numeric(curr[2])
+      if(!withDesc) context$map = addAwesomeMarkers(context$map, lat=lati,lng=long, icon=appIcon)
+      else{
+        desc = as.character(curr[3])
+        context$map = addAwesomeMarkers(context$map, lat=lati,lng=long, popup=desc, icon=appIcon)
+      }
     }
   }
 }
@@ -35,70 +39,42 @@ observable_drpSelect <- function(input, output, session, context){
 
 observable_chkChange <- function(input, output, session, context){
   context$checked <- input$chkData
-}
-
-observable_btnRefresh <- function(input, output, session, context){
-  if (!exists(curr_loc, envir = context, inherits = FALSE)){
+  # reset map
+  context$map <- getSGLeafletMap(context)
+  if (!exists("curr_loc", envir = context, inherits = FALSE)){
+    output$map <- renderLeaflet({context$map})
+    return(NULL)
+  }
+  checkedVec = context$checked
+  if (is.null(checkedVec)){
     output$map <- renderLeaflet({context$map})
     return(NULL)
   }
   # prepare variables
   clng = context$curr_loc$lng
   clat = context$curr_loc$lat
-  checkedVec = context$checked
+  context$map %>% setView(lng = clng, lat = clat, zoom = 12)
   ico = makeAwesomeIcon(text=fa("circle"), iconColor="white", markerColor="blue")
-  # reset context$map
-  context$map <- leaflet() %>% addTiles()
   if ("Hawker Centres" %in% checkedVec) {
-    haw = context$data.haw
-    haw = haw %>% select(lng, lat, name_of_centre) %>% mutate(dist = geogDist(lng, lat, clng, clat)) %>% arrange(dist)
-    haw = head(haw, 5) 
-    editMap(haw, ico, withDesc = TRUE)
+    context$map = addCircleMarkers(context$map, data = context$data.res)
   }
   if ("Hotels" %in% checkedVec) {
-    hot = context$data.hot
-    hot = hot %>% select(lng, lat, Name, TOTALROOMS, ADDRESS) %>% 
-      mutate(dist = geogDist(lng, lat, clng, clat), 
-             desc = paste0("Name: ", name, "\nTotal Rooms: ", TOTALROOMS, "\nAddress: ", ADDRESS)) %>% 
-      arrange(dist) %>% select(lng, lat, desc)
-    hot = head(hot, 5)
-    editMap(hot, ico, withDesc = TRUE)
+    context$map = addCircleMarkers(context$map, data = context$data.res)
   }
   if ("MRT / LRTs" %in% checkedVec) {
-    mrt = context$data.mrt
-    mrt = mrt %>% select(lng, lat, station_name, type) %>% 
-      mutate(dist = geogDist(lng, lat, clng, clat), 
-             desc = paste0("Station Name: ", station_name, "\nStation Type: ", type)) %>% 
-      arrange(dist) %>% select(lng, lat, desc)
-    mrt = head(mrt, 5)
-    editMap(mrt, ico, withDesc = TRUE)
+    context$map = addCircleMarkers(context$map, data = context$data.res)
   }
   if ("Taxi Stands" %in% checkedVec) {
-    tax = context$data.tax
-    tax = tax %>% select(lng, lat) %>% mutate(dist = geogDist(lng, lat, clng, clat)) %>% arrange(dist)
-    tax = head(tax, 5)
-    editMap(tax, ico, withDesc = FALSE)
+    context$map = addCircleMarkers(context$map, data = context$data.res)
   }
   if ("Restaurants" %in% checkedVec) {
-    print("Restaurants Not Implemented")
+    context$map = addCircleMarkers(context$map, data = context$data.res)
   }
   if ("Tourism Info" %in% checkedVec) {
-    tou = context$data.tou
-    tou = tou %>% select(lng, lat, Name, description) %>% 
-      mutate(dist = geogDist(lng, lat, clng, clat), 
-             desc = paste0("Name: ", Name, "\nDescription: ", description)) %>% 
-      arrange(dist) %>% select(lng, lat, desc)
-    tou = head(tou, 5)
-    editMap(tou, ico, withDesc = TRUE)
+    context$map = addCircleMarkers(context$map, data = context$data.res)
   }
   if ("Weather" %in% checkedVec) {
-    wea = context$data.wea
-    wea = wea %>% select(lng, lat, area, forecast) %>%
-      mutate(dist = geogDist(lng, lat, clng, clat), 
-             desc = paste0("Area: ", area, "\nForecast: ", forecast)) %>% 
-      arrange(dist) %>% select(lng, lat, desc)
-    wea = head(wea, 5)
-    editMap(wea, ico, withDesc = TRUE)
+    context$map = addCircleMarkers(context$map, data = context$data.res)
   }
   output$map <- renderLeaflet({context$map})
 }
@@ -118,13 +94,12 @@ bzmap_UI <- function(id){
         ),
         wellPanel(
           checkboxGroupInput(ns("chkData"), "Which data sources to show?", 
-            c("Hawker Centres", "Hotels", "MRT / LRTs", "Restaurants", "Taxi Stands", "Tourism Info", "Weather")),
-          actionButton(ns("btnRefresh"), "Refresh Map")
+            c("Hawker Centres", "Hotels", "MRT / LRTs", "Restaurants", "Taxi Stands", "Tourism Info", "Weather"))
         )
       ),
       mainPanel(
-        leafletOutput(outputId = "map"),
-        htmlOutput(outputId = "html")
+        leafletOutput(outputId = ns("map")),
+        htmlOutput(outputId = ns("html"))
       )
     )
   )
@@ -136,15 +111,11 @@ bzmap_server <- function(id){
   moduleServer(
     id,
     function(input, output, session){ # logic
-      #reactive changes
+      # reactive controls
       observe({observable_txtSearch(input, output, session, context)})
       observe({observable_drpSelect(input, output, session, context)})
       observe({observable_chkChange(input, output, session, context)})
-      #triggers only once for the button for initiation purposes
-      observe({observable_btnRefresh(input, output, session, context)})
-      #event driven changes
-      observeEvent(input$btnRefresh,
-                   {observable_btnRefresh(input, output, session, context)})
+      # normal on controls
       output$txtTableSelectedTitle <- renderText({"About this location:"})
     }
   )
