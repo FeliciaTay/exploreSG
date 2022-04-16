@@ -73,6 +73,7 @@ observable_drpDetail <- function(input, output, session, context){
   sel <- input$selDetail     # receives trigger
   if(is.null(context$activeInfo)) return(NULL) # sanity check
   tab = context$activeInfo[ , sel]   # retrieves global variable
+  if(is.null(tab)) tab = "Unknown"
   output$tableNear <- renderTable(tab, rownames = FALSE, colnames = TRUE)
 }
 

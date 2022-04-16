@@ -22,11 +22,11 @@ bzmap_UI <- function(id, vecDataFileNames, vecDataLabels, vecPopupFields, vecOut
         leafletOutput(outputId = ns("map")),
         fluidRow(
           wellPanel(
-            sliderInput(ns("sliDistance"), "Percentage near you:", 0, 100, 100),
+            sliderInput(ns("sliDistance"), "<---Near-you-only-----[Percentage]-----Show-all-data--->", 0, 100, 100),
             textOutput(ns("txtWeather"))
           ),
           wellPanel(
-            selectInput(ns("selDetail"), "See what you have selected", NULL),
+            selectInput(ns("selDetail"), "See what attribute you have selected after clicking on a blob!", NULL),
             tableOutput(ns("tableNear"))
           )
         )
