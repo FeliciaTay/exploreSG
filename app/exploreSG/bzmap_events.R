@@ -9,52 +9,36 @@ dataValidation <- function(names, labels, fields, drops){
      !(mode(fields) %in% c("character")) || !(mode(drops) %in% c("character"))) stop("Error: data not characters")
 }
 
-# edits a leaflet map in place
-editMap <- function(context, data, appIcon, withDesc = FALSE) {
-  for (i in 1:nrow(data)) {
-    curr = data[i,]
-    if(is.numeric(curr[4])){
-      long = as.numeric(curr[1])
-      lati = as.numeric(curr[2])
-      if(!withDesc) context$map = addAwesomeMarkers(context$map, lat=lati,lng=long, icon=appIcon)
-      else{
-        desc = as.character(curr[3])
-        context$map = addAwesomeMarkers(context$map, lat=lati,lng=long, popup=desc, icon=appIcon)
-      }
-    }
-  }
-}
-
 sub_updateLocation <- function(input, output, session, context){
   # update map location
   if(!is.null(input$map_zoom)) context$plotzoom = input$map_zoom
   if(!is.null(input$map_center)) {
-    context$plotlng = input$map_center$lng
-    context$plotlat = input$map_center$lat
+    if(input$map_center$lng != context$plotlng || input$map_center$lat != context$plotlat){
+      context$plotlng = input$map_center$lng
+      context$plotlat = input$map_center$lat
+      # update weather forecast
+      context$data.wea = context$data.wea %>% mutate(plg = context$plotlng, plt = context$plotlat) %>% 
+        mutate(dist = geogVecDist(lng, lat, plg, plt)) %>% arrange(dist)
+      output$txtWeather <- renderText({paste0("The weather near you is: ", head(context$data.wea, 1)$forecast)})
+      # update data and sdata since location changed
+      lst = vector(mode = "list", length = context$length)
+      for (i in 1:context$length) {
+        context$data[[i]] = context$data[[i]] %>% mutate(plg = context$plotlng, plt = context$plotlat) %>% 
+          mutate(dist = geogVecDist(lng, lat, plg, plt)) %>% arrange(dist)
+        sdatlen = context$percentage * nrow(context$data[[i]]) / 100
+        sdat = context$data[[i]][1:sdatlen, ]
+        coordinates(sdat) = context$geonames
+        context$sdata[[i]] = sdat
+      }
+    }
   }
-  # update weather forecast
-  context$data.wea = context$data.wea %>% mutate(plg = context$plotlng, plt = context$plotlat) %>% 
-    mutate(dist = geogVecDist(lng, lat, plg, plt)) %>% arrange(dist)
-  output$txtWeather <- renderText({paste0("The weather near you is: ", head(wea, 1)$forecast)})
-  # update data and sdata and nearbyList since location changed
-  lst = vector(mode = "list", length = context$length)
-  for (i in 1:context$length) {
-    context$data[[i]] = context$data[[i]] %>% mutate(plg = context$plotlng, plt = context$plotlat) %>% 
-      mutate(dist = geogVecDist(lng, lat, plg, plt)) %>% arrange(dist)
-    sdatlen = context$percentage * nrow(context$data[[i]]) / 100
-    sdat = context$data[[i]][1:sdatlen, ]
-    coordinates(sdat) = context$geonames
-    context$sdata[[i]] = sdat
-    context$nearbyList[[i]] = head(sdat, 1)
-  }
-  names(context$nearbyList) = context$name
 }
 
 sub_redraw <- function(input, output, session, context){
   context$map = getSGLeafletMap(context) %>% 
     setView(lng = context$plotlng, lat = context$plotlat, zoom = context$plotzoom)
   if(!is.null(context$checked)){
-    for (i in 1:len) {
+    for (i in 1:context$length) {
       if (context$name[i] %in% context$checked){
         popups = as.data.frame(context$sdata[[i]][ , context$popupfields[i]])[[1]]
         context$map = addCircleMarkers(context$map, data = context$sdata[[i]], 
@@ -73,19 +57,17 @@ observable_txtSearch <- function(input, output, session, context){
                     label = paste0("Available options based on \"", x, "\":"),
                     choices = name
   )
-  sub_updateLocation(input, output, session, context)
 }
 
 observable_drpSelect <- function(input, output, session, context){
   x <- input$drpSelect
   lst = context$lstLoc
   match = filter(lst, name == UQ(x))
-  context$curr_loc <- match
   if(match$name == "No Result") match[1:nrow(match),2:ncol(match)] = NA
   else{
     context$plotlat = match$lat
     context$plotlng = match$lng
-    if(!is.null(input$map_zoom)) context$plotzoom = input$map_zoom
+    context$curr_loc <- match
     leafletProxy("map") %>% setView(context$plotlng, context$plotlat, context$plotzoom)
   }
   output$tableSelected <- renderTable(t(match), rownames = TRUE, colnames = FALSE)
