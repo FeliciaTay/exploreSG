@@ -30,6 +30,15 @@ geogDist <- function(lng, lat, lng2, lat2){
   return(distm(c(lng, lat), c(lng2, lat2), fun = distGeo))
 }
 
+# find the distance from two vector pairs of long-lat values along earth's curvature.
+geogVecDist <- function(lng, lat, lng2, lat2){
+  vec = numeric(length = length(lng))
+  for (i in 1:length(vec)) {
+    vec[i] = geogDist(lng[i], lat[i], lng2[i], lat2[i])
+  }
+  return(vec)
+}
+
 # convert hsv color space to rgb color space
 hsv2rgb <- function(hue, sat, val){
   c = sat * val
@@ -74,7 +83,7 @@ generatePallette <- function(len){
 }
 
 # creates an environment object as the data context to be used by this module
-initDataContext <- function(files, labels, fields){
+initDataContext <- function(files, labels, fields, drops){
   # local vars
   len = length(files)
   geonames = c("lng", "lat")
@@ -95,15 +104,18 @@ initDataContext <- function(files, labels, fields){
   context$popupfields = fields
   context$data = list()
   context$sdata = list()
+  context$activeInfo = NULL
+  context$drops = drops
   for(i in 1:len) {
     dat = read.csv(files[i]) # original
-    dat = dat %>% rowwise() %>% mutate(dist = geogDist(lng, lat, context$plotlng, context$plotlat)) %>% arrange(dist)
+    dat = dat %>% mutate(plg = context$plotlng, plt = context$plotlat) %>% 
+      mutate(dist = geogVecDist(lng, lat, plg, plt)) %>% arrange(dist)
     context$data[[i]] = dat  # with dist
     context$sdata[[i]] = dat # spacial
     locs = rbind(locs, subset(dat, select = geonames))
   } 
-  context$data.wea = getWeatherForecast() %>% rowwise() %>% 
-    mutate(dist = geogDist(lng, lat, context$plotlng, context$plotlat)) %>% arrange(dist)
+  context$data.wea = getWeatherForecast() %>% mutate(plg = context$plotlng, plt = context$plotlat) %>%
+    mutate(dist = geogVecDist(lng, lat, plg, plt)) %>% arrange(dist)
   locs = distinct(locs)
   coordinates(locs) = geonames
   context$extent = extent(locs)
