@@ -17,6 +17,14 @@ source("datascript/weather.R")
 source("datascript/restaurants.R")
 
 # region functions ############################################################
+# throws errors when data input is illegal
+dataValidation <- function(names, labels, fields, drops){
+  if(length(names) != length(labels)) stop("Error: Not all FileName is associated with a Label")
+  if(length(names) != length(fields)) stop("Error: Not all FileName is associated with a Field")
+  if(!(mode(names) %in% c("character")) || !(mode(labels) %in% c("character")) || 
+     !(mode(fields) %in% c("character")) || !(mode(drops) %in% c("character"))) stop("Error: data not characters")
+}
+
 # creates a leaflet map of SG
 getSGLeafletMap <- function(context){
   map = leaflet() %>% addTiles() %>% 

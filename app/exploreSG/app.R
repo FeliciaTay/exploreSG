@@ -9,9 +9,15 @@ drops = c("X", "x", "y", "dist", "plg", "plt", "lng", "lat", "success")
 # UI ##########################################################################
 shinyApp(
   ui = fluidPage(
-    bzmap_UI("bzmap", files, labels, fields, drops)
+    tabsetPanel(
+      tabPanel("bztab", bzmap_UI("bzmap", files, labels, fields, drops)),
+      tabPanel("fttab", htmlOutput("html1")),
+      tabPanel("About & Help", htmlOutput("html2"))
+    )
   ),
   server = function(input, output, session) {
     bzmap_server("bzmap", files, labels, fields, drops)
+    output$html1 <- renderUI({HTML("<h1>TAB</h1><span>test span</span><p>this is help doc</p>")})
+    output$html2 <- renderUI({HTML("<h1>About Us</h1><span>We are human</span><p>We are great!</p>")})
   }
 )
