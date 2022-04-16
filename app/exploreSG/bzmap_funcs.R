@@ -12,7 +12,7 @@ library(tidyr)
 library(geosphere)
 library(sp)
 library(rgdal)
-# region datascripts ##########################################################
+library(fontawesome)
 source("datascript/weather.R")
 source("datascript/restaurants.R")
 
@@ -28,6 +28,15 @@ getSGLeafletMap <- function(context){
 # find the distance from two pairs of lng-lat values along earth's curvature
 geogDist <- function(lng, lat, lng2, lat2){
   return(distm(c(lng, lat), c(lng2, lat2), fun = distGeo))
+}
+
+# find the distance from two vector pairs of long-lat values along earth's curvature.
+geogVecDist <- function(lng, lat, lng2, lat2){
+  vec = numeric(length = length(lng))
+  for (i in 1:length(vec)) {
+    vec[i] = geogDist(lng[i], lat[i], lng2[i], lat2[i])
+  }
+  return(vec)
 }
 
 # convert hsv color space to rgb color space
@@ -74,37 +83,43 @@ generatePallette <- function(len){
 }
 
 # creates an environment object as the data context to be used by this module
-initDataContext <- function(files, labels, fields){
-  # new environment
+initDataContext <- function(files, labels, fields, drops){
+  # local vars
   len = length(files)
-  context = new.env(parent = emptyenv())
-  # read tables
-  context$data = list()
-  context$name = labels
-  for(i in 1:len) context$data[[i]] = read.csv(files[i])
-  # get webdata
-  context$data.wea = getWeatherForecast()
-  # compute LocSet
-  tmploc = data.frame(matrix(ncol = 2, nrow = len))
   geonames = c("lng", "lat")
-  names(tmploc) = geonames
-  for(i in 1:len){
-    ss = subset(context$data[[i]], select = geonames)
-    tmploc[i, ] = ss[i, ]
-  }
-  tmploc = distinct(tmploc)
-  coordinates(tmploc) = geonames
-  context$extent = extent(tmploc)
-  # convert to spacial data
-  for(i in 1:len) coordinates(context$data[[i]]) = geonames
-  # generate color pallette
-  context$colors = generatePallette(len)
-  # plot map
+  locs = data.frame(matrix(ncol = 2, nrow = 0))
+  names(locs) = geonames
+  context = new.env(parent = emptyenv())
+  # global vars
+  context$length = len
+  context$geonames = geonames
   context$plotlat = 1.296321
   context$plotlng = 103.776718
   context$plotzoom = 12
-  context$popupfields = fields
+  context$colors = generatePallette(len)
+  context$icon = makeAwesomeIcon(text=fa("circle"), iconColor="white", markerColor="blue")
   context$map = getSGLeafletMap(context)
+  context$percentage = 100
+  context$name = labels
+  context$popupfields = fields
+  context$data = list()
+  context$sdata = list()
+  context$activeInfo = NULL
+  context$drops = drops
+  for(i in 1:len) {
+    dat = read.csv(files[i]) # original
+    dat = dat %>% mutate(plg = context$plotlng, plt = context$plotlat) %>% 
+      mutate(dist = geogVecDist(lng, lat, plg, plt)) %>% arrange(dist)
+    context$data[[i]] = dat  # with dist
+    context$sdata[[i]] = dat # spacial
+    locs = rbind(locs, subset(dat, select = geonames))
+  } 
+  context$data.wea = getWeatherForecast() %>% mutate(plg = context$plotlng, plt = context$plotlat) %>%
+    mutate(dist = geogVecDist(lng, lat, plg, plt)) %>% arrange(dist)
+  locs = distinct(locs)
+  coordinates(locs) = geonames
+  context$extent = extent(locs)
+  for(i in 1:len) coordinates(context$sdata[[i]]) = geonames
   return(context)
 }
 
