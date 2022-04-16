@@ -1,0 +1,112 @@
+source("bzmap_funcs.R")
+
+# region events ###############################################################
+# check if input data is valid, throws errors if not
+dataValidation <- function(names, labels, fields){
+  if(length(names) != length(labels)) stop("Error: Not all FileName is associated with a Label")
+  if(length(names) != length(fields)) stop("Error: Not all FileName is associated with a Field")
+  if(!(mode(names) %in% c("character")) || !(mode(labels) %in% c("character")) || !(mode(fields) %in% c("character"))) stop("Error: data not characters")
+}
+
+# edits a leaflet map in plade
+editMap <- function(context, data, appIcon, withDesc = FALSE) {
+  for (i in 1:nrow(data)) {
+    curr = data[i,]
+    if(is.numeric(curr[4])){
+      long = as.numeric(curr[1])
+      lati = as.numeric(curr[2])
+      if(!withDesc) context$map = addAwesomeMarkers(context$map, lat=lati,lng=long, icon=appIcon)
+      else{
+        desc = as.character(curr[3])
+        context$map = addAwesomeMarkers(context$map, lat=lati,lng=long, popup=desc, icon=appIcon)
+      }
+    }
+  }
+}
+
+sub_updateLocation <- function(input, output, session, context){
+  # update weather forecast
+  context$data.wea = context$data.wea %>% rowwise() %>% 
+    mutate(dist = geogDist(lng, lat, context$plotlng, context$plotlat)) %>% arrange(dist)
+  output$txtWeather <- renderText({paste0("The weather near you is: ", head(wea, 1)$forecast)})
+  # update data and sdata since location changed
+  for (i in 1:context$length) {
+    context$data[[i]] = context$data[[i]] %>% rowwise() %>% 
+      mutate(dist = geogDist(lng, lat, context$plotlng, context$plotlat)) %>% arrange(dist)
+    sdatlen = context$percentage * nrow(context$data[[i]]) / 100
+    sdat = context$data[[i]][1:sdatlen, ]
+    coordinates(sdat) = context$geonames
+    context$sdata[[i]] = sdat
+  }
+}
+
+sub_redraw <- function(input, output, session, context){
+  context$map = getSGLeafletMap(context) %>% 
+    setView(lng = context$plotlng, lat = context$plotlat, zoom = context$plotzoom)
+  if(!is.null(context$checked)){
+    for (i in 1:len) {
+      if (context$name[i] %in% context$checked){
+        popups = as.data.frame(context$sdata[[i]][ , context$popupfields[i]])[[1]]
+        context$map = addCircleMarkers(context$map, data = context$sdata[[i]], 
+          color = context$colors[i], label = popups, clusterOptions = markerClusterOptions())
+      }
+    }
+  }
+  output$map <- renderLeaflet({context$map})
+}
+
+sub_drpNearbyUpdate <- function(input, output, session, context){
+  for (i in 1:context$length) {
+    if(context$nam[i] %in% context$checked){
+      
+    }
+  }
+}
+
+observable_txtSearch <- function(input, output, session, context){
+  x <- input$txtSearch
+  context$lstLoc <- searchLoc(x)
+  name = context$lstLoc$name # breaks reference
+  updateSelectInput(session, "drpSelect",
+                    label = paste0("Available options based on \"", x, "\":"),
+                    choices = name
+  )
+  sub_updateLocation(input, output, session, context)
+}
+
+observable_drpSelect <- function(input, output, session, context){
+  x <- input$drpSelect
+  lst = context$lstLoc
+  match = filter(lst, name == UQ(x))
+  context$curr_loc <- match
+  if(match$name == "No Result") match[1:nrow(match),2:ncol(match)] = NA
+  else{
+    context$plotlat = match$lat
+    context$plotlng = match$lng
+    if(!is.null(input$map_zoom)) context$plotzoom = input$map_zoom
+    leafletProxy("map") %>% setView(context$plotlng, context$plotlat, context$plotzoom)
+  }
+  output$tableSelected <- renderTable(t(match), rownames = TRUE, colnames = FALSE)
+  sub_updateLocation(input, output, session, context)
+}
+
+observable_chkChange <- function(input, output, session, context){
+  x <- input$chkData
+  context$checked = x
+  sub_redraw(input, output, session, context)
+}
+
+observable_sliChange <- function(input, output, session, context){
+  x <- input$sliDistance
+  context$percentage = x
+  # update sdata only since location have not changed
+  for(i in 1:context$length){
+    sdatlen = context$percentage * nrow(context$data[[i]]) / 100
+    sdat = context$data[[i]][1:sdatlen, ]
+    coordinates(sdat) = context$geonames
+    context$sdata[[i]] = sdat
+  }
+  sub_redraw(input, output, session, context)
+}
+
+# End of File
