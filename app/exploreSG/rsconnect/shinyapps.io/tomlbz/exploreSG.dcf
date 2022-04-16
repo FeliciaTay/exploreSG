@@ -1,0 +1,13 @@
+name: exploreSG
+title: exploreSG
+username:
+account: tomlbz
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 6102937
+bundleId: 5804821
+url: https://tomlbz.shinyapps.io/exploreSG/
+when: 1650110739.28813
+lastSyncTime: 1650110739.28813
+asMultiple: FALSE
+asStatic: FALSE

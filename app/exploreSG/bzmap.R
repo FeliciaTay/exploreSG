@@ -42,13 +42,13 @@ bzmap_server <- function(id, vecDataFileNames, vecDataLabels, vecPopupFields, ve
   moduleServer(
     id,
     function(input, output, session){ # logic
-      # reactive controls
-      observe({observable_txtSearch(input, output, session, context)})
-      observe({observable_drpSelect(input, output, session, context)})
-      observe({observable_chkChange(input, output, session, context)})
-      observe({observable_sliChange(input, output, session, context)})
-      observe({observable_mapClickd(input, output, session, context)})
-      observe({observable_drpDetail(input, output, session, context)})
+      # event-triggering controls
+      observeEvent(input$map_marker_click,{observable_mapClickd(input, output, session, context)})
+      observeEvent(input$txtSearch       ,{observable_txtSearch(input, output, session, context)})
+      observeEvent(input$drpSelect       ,{observable_drpSelect(input, output, session, context)})
+      observeEvent(input$chkData         ,{observable_chkChange(input, output, session, context)}, ignoreNULL = FALSE)
+      observeEvent(input$sliDistance     ,{observable_sliChange(input, output, session, context)})
+      observeEvent(input$selDetail       ,{observable_drpDetail(input, output, session, context)})
       # normal on controls
       output$txtTableSelectedTitle <- renderText({"About this location:"})
     }
