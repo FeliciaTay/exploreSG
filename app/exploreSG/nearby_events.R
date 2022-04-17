@@ -51,6 +51,8 @@ observable_chkChange <- function(input, output, session, context){
   context$checked = x    # sets global variable
   sub_updateLocation(input, output, session, context)
   sub_redraw(input, output, session, context) # redraw graph due to changed blobs
+  context$activeInfo = c(NA)
+  updateSelectInput(session, "selDetail", "Select on a location marker to see more information!", context$activeInfo)
 }
 
 # Event: Triggered when Percentage Scale is Changed ###########################
@@ -72,9 +74,8 @@ observable_sliChange <- function(input, output, session, context){
 observable_drpDetail <- function(input, output, session, context){
   sel <- input$selDetail     # receives trigger
   if(is.null(context$activeInfo)) return(NULL) # sanity check
-  tab = context$activeInfo[ , sel]   # retrieves global variable
-  if(is.null(tab)) tab = "Unknown"
-  output$tableNear <- renderTable(tab, rownames = FALSE, colnames = TRUE)
+  tab = ifelse(is.na(context$activeInfo[1]), NA, context$activeInfo[ , sel]) # fetches content
+  output$htmlNear <- renderUI({HTML(tab)})
 }
 
 # Procedure: Re-calculates the data and sdata globally ########################

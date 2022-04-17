@@ -25,8 +25,8 @@ nearby_UI <- function(id, vecDataFileNames, vecDataLabels, vecPopupFields, vecOu
             textOutput(ns("txtWeather"))
           ),
           wellPanel(
-            selectInput(ns("selDetail"), "Select on a location marker to see more information!", NULL),
-            tableOutput(ns("tableNear"))
+            selectInput(ns("selDetail"), "Select on a location marker to see more information!", c(NA)),
+            htmlOutput(ns("htmlNear"))
           )
         )
       )
