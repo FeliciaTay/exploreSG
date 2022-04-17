@@ -1,23 +1,35 @@
-source("bzmap.R")
+source("nearby.R")
+source("tourists.R")
+source("parks.R")
+source("info.R")
 
-# context #####################################################################
-files = c("data/hawkers.csv", "data/hotels.csv", "data/mrts.csv", "data/restaurants.csv", "data/taxis.csv", "data/tourism.csv")
-labels = c("Hawker Centres", "Hotels", "MRT / LRTs", "Restaurants", "Taxi Stands", "Tourism Info")
+# nearby- context #####################################################################
+files = c("data/hawkers.csv", "data/hotels.csv", "data/mrts.csv", "data/restaurants.csv", "data/taxis.csv", "data/TOURISM.csv")
+labels = c("Hawker Centres", "Hotels", "MRT / LRTs", "Restaurants", "Taxi Stands", "Tourism Attractions")
 fields = c("name_of_centre", "Name", "station_name", "name", "TYPE_CD_DE", "Name")
 drops = c("X", "x", "y", "dist", "plg", "plt", "lng", "lat", "success")
 
 # UI ##########################################################################
 shinyApp(
   ui = fluidPage(
+    titlePanel(title = htmltools::span(img(src = "icon.png",height=50), "ExploreSG"), windowTitle = 'ExploreSG'),
     tabsetPanel(
-      tabPanel("bztab", bzmap_UI("bzmap", files, labels, fields, drops)),
-      tabPanel("fttab", htmlOutput("html1")),
-      tabPanel("About & Help", htmlOutput("html2"))
+      tags$head(
+        tags$link(rel = "stylesheet", type = "text/css", href = "style.css")
+      ),
+      tabPanel("What's nearby?", nearby_UI("nearby", files, labels, fields, drops)),
+      tabPanel("Tourist attractions", tourists_UI("tourists")),
+      tabPanel("Parks and Nature Reserves", parks_UI("parks")),
+      tabPanel("Information about our app!", info_UI("info"))
     )
   ),
   server = function(input, output, session) {
-    bzmap_server("bzmap", files, labels, fields, drops)
-    output$html1 <- renderUI({HTML("<h1>TAB</h1><span>test span</span><p>this is help doc</p>")})
-    output$html2 <- renderUI({HTML("<h1>About Us</h1><span>We are human</span><p>We are great!</p>")})
+    nearby_server("nearby", files, labels, fields, drops)
+    
+    tourists_server("tourists")
+    
+    parks_server("parks")
+    
+    info_server("info")
   }
 )
