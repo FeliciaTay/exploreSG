@@ -22,7 +22,7 @@ tourists_UI <- function(id){
 }
 
 tourists_server <- function(id){
-  tourist <- read.csv("data/TOURISM.csv") %>% filter(!grepl("?€?", Name, fixed = T))
+  tourist <- read.csv("data/tourism.csv")
   temp_icon <- makeAwesomeIcon(text=fa("circle"), iconColor="white", markerColor="blue")
   
   moduleServer(
